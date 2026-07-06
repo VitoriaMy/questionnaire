@@ -1,234 +1,206 @@
-# GitHub Public Survey System
+# GitHub Issue Survey System
 
-一个只依赖 GitHub 自身免费服务的公开问卷系统模板。前端通过 GitHub Pages 托管，问卷提交通过 GitHub Issue Forms 完成，GitHub Actions 负责自动汇总并生成公开的 Markdown 报表。
+一个只依赖 GitHub 自身免费服务的单仓库问卷系统。问卷配置保存在仓库文件中，用户通过 GitHub Issue Forms 提交问卷，GitHub Actions 自动把提交结果同步到仓库内的数据文件，并更新汇总报表。
 
 ## 项目结构
 
 ```text
 .
-├── src/
-│   ├── App.jsx
-│   ├── index.css
-│   └── components/
-├── index.html
 ├── public/
 │   └── surveys/
 │       ├── index.json
 │       └── *.json
+├── data/
+│   └── responses/
+│       └── .gitkeep
 ├── .github/
 │   ├── ISSUE_TEMPLATE/
+│   │   ├── config.yml
+│   │   └── *.yml
 │   └── workflows/
-│       ├── aggregate.yml
-│       └── deploy-pages.yml
+│       └── sync-survey-data.yml
+├── summary/
+│   └── .gitkeep
+├── scripts/
+│   └── validate-surveys.js
 ├── package.json
 └── README.md
 ```
 
 ## 工作原理
 
-1. 用户在 GitHub Pages 上访问由 React + Vite 构建出的静态页面。
-2. 页面根据 URL 参数定位问卷，并跳转到对应的 GitHub Issue Form。
-3. 用户在公开仓库中以 Issue 形式提交问卷数据。
-4. GitHub Actions 监听问卷 Issue 变更，自动汇总并生成 SUMMARY.md。
+1. 问卷配置存放在 public/surveys/*.json。
+2. 每个问卷配置通过 issueTemplate 字段绑定一个 GitHub Issue Form 模板。
+3. 用户在当前公开仓库中直接使用 Issue Form 提交问卷。
+4. GitHub Actions 按定时任务重新构建 data/responses 下的数据文件。
+5. GitHub Actions 同时更新 summary/ 下的各问卷汇总报表。
 
-## 多问卷支持
+## 单仓库模式
 
-当前版本已支持多个问卷共存，默认通过静态 JSON 配置提供三类问卷示例：社区反馈、功能投票、活动报名。
+整个方案就是单仓库模式，不依赖外部后端：
 
-前端技术栈已经切换为 React、Vite、Tailwind CSS 与 shadcn 风格组件。
+- 问卷配置在当前仓库。
+- Issue Forms 由问卷 JSON 自动生成并保存在当前仓库。
+- 提交数据文件在当前仓库。
+- 每个问卷的汇总报表都在当前仓库的 summary/ 目录。
+- 自动化工作流也在当前仓库。
 
-工作方式如下：
+## 问卷配置
 
-1. 前端会先读取 public/surveys/index.json，再按 URL 中的 survey 参数加载指定问卷。
-2. 每个问卷 JSON 通过 issueTemplate 指向对应的 GitHub Issue Form 模板。
-3. 用户点击页面按钮后，会跳转到公开仓库的 Issue 创建页。
-4. 汇总工作流会读取带有 survey-response 标签的公开 Issues，并按问卷统计提交量。
+索引文件 public/surveys/index.json 记录所有问卷文件名。
 
-如果你要新增问卷，需要在 public/surveys 下新增一个 JSON 文件，并把文件名写入 public/surveys/index.json。
-同时，你还需要在 .github/ISSUE_TEMPLATE 下新增对应的 Issue Form 文件。
+每个问卷文件至少包含：
 
-字段类型目前支持：
+- id：问卷唯一标识。
+- issueTemplate：对应的 Issue Form 模板文件名。
+- title：问卷标题。
+- description：问卷说明。
+- shortDescription：问卷短说明。
+- fields：字段数组。
 
-- input：单行文本输入。
-- textarea：多行文本输入。
-- email：邮箱输入。
-- date：日期输入。
-- rating：评分输入，使用 scaleMin 和 scaleMax 定义范围。
-- select：下拉选择，必须提供 options。
-- radio：单选，必须提供 options。
-- checkbox：多选，必须提供 options。
+每次修改问卷 JSON 后，运行一次：
 
-字段结构示例：
+```bash
+npm run generate:issue-templates
+```
+
+这样会自动重建 .github/ISSUE_TEMPLATE 下的模板文件，避免手工维护两份配置。
+
+支持的字段类型：
+
+- input
+- textarea
+- email
+- date
+- rating
+- select
+- radio
+- checkbox
+
+## 数据落盘规则
+
+定时任务执行后，工作流会把问卷结果转换成仓库内的数据文件：
+
+```text
+data/responses/<surveyId>/issue-<issueNumber>.json
+```
+
+单条数据示例：
 
 ```json
 {
-   "name": "priorityLevel",
-   "label": "你的优先级判断",
-   "type": "radio",
-   "options": [
-      {
-         "value": "p0",
-         "label": "P0 - 必须优先处理",
-         "description": "没有这个功能会明显影响当前使用。"
-      }
-   ]
+  "issueNumber": 12,
+  "issueTitle": "[Community Feedback] 登录流程建议",
+  "issueUrl": "https://github.com/your-org/your-public-repo/issues/12",
+  "issueState": "open",
+  "issueAuthor": "octocat",
+  "reporter": "octocat",
+  "surveyId": "community-feedback",
+  "surveyTitle": "社区用户意见征集",
+  "submittedAt": "2026-07-06T12:00:00.000Z",
+  "updatedAt": "2026-07-06T12:05:00.000Z",
+  "answers": {
+    "feedback": "希望增加导出能力"
+  },
+  "summaryText": "改进建议 / 需求反馈: 希望增加导出能力"
 }
 ```
 
-其中：
+每个问卷还会生成独立汇总文件：
 
-- name：字段提交名。
-- label：页面展示名。
-- type：字段类型。
-- placeholder：适用于 input 和 textarea。
-- scaleMin / scaleMax：适用于 rating。
-- options：适用于 select、radio、checkbox。
-- required：可选，传 false 时表示非必填；默认必填。
+```text
+summary/index.md
+summary/community-feedback.md
+summary/feature-voting.md
+summary/event-registration.md
+```
 
-## 环境要求
+文件名与问卷配置文件名保持一致，只是扩展名由 .json 变成 .md。
 
-- Node.js 20+
-- 一个公开 GitHub 仓库
-- GitHub Pages
-- GitHub Actions
+每个独立汇总文件会输出：
 
-## 本地启动
+- 问卷标题、更新时间、配置文件名。
+- 当前问卷的总提交数。
+- 一张按字段展开的 Markdown 表格，表头来自该问卷的 fields.label。
 
-1. 安装依赖
+另外还会生成一个总览文件：
 
-   npm install
+- summary/index.md
 
-2. 配置公开仓库地址。你可以二选一：
+这个文件会列出所有问卷、对应配置文件、提交数，以及各自汇总文件的链接。
 
-   - 在根目录 index.html 中修改 github-repo-url 元信息。
-   - 在本地或部署环境里设置 VITE_GITHUB_REPO_URL。
+## GitHub 配置
 
-   例如：
+### 1. 启用 Issue Forms
 
-   https://github.com/your-org/your-public-repo
+- 保持 .github/ISSUE_TEMPLATE 目录存在。
+- 模板由 npm run generate:issue-templates 自动生成。
+- 每个问卷配置里的 issueTemplate 要和目标模板文件名一致。
 
-3. 启动本地开发服务
+### 2. 启用 Actions 写权限
 
-   npm run dev
-
-4. 打开 Vite 本地地址并访问首页，点击某个问卷并确认它会跳转到 GitHub Issue Form。
-
-访问指定问卷时，使用 URL 参数，例如：
-
-https://你的页面地址/?survey=community-feedback
-
-## 部署步骤
-
-### 1. 创建公开仓库
-
-- 创建一个公开 GitHub 仓库，用来同时承载前端页面、Issue Forms 和汇总结果。
-- 把当前项目完整推送到这个公开仓库。
-
-### 2. 启用 GitHub Pages
-
-- 进入仓库 Settings。
-- 打开 Pages。
-- Source 选择 GitHub Actions。
-- 保持 .github/workflows/deploy-pages.yml 在仓库中。
-
-### 3. 启用公开问卷提交
-
-- 保持 .github/ISSUE_TEMPLATE 目录中的问卷模板。
-- 在 index.html 中把 github-repo-url 改成你的真实仓库地址，或者在构建环境中设置 VITE_GITHUB_REPO_URL。
-- 如果要访问特定问卷，使用页面地址加 survey 参数，例如 ?survey=feature-voting。
-
-### 4. 自动汇总
-
-- aggregate.yml 会监听带 survey-response 标签的 Issue 变更。
-- 每次新增、编辑、关闭或重新打开问卷 Issue 后，SUMMARY.md 都会自动更新。
-
-## GitHub 运行配置
-
-这一节只说明 GitHub 侧必须完成的配置，目的是让公开仓库同时承担 Pages、Issue Forms 和自动汇总报表能力。
-
-### 1. Pages 配置
-
-- 进入仓库 Settings。
-- 打开 Pages。
-- Source 选择 GitHub Actions。
-- 推送到 main 分支后，deploy-pages.yml 会自动构建并发布 dist。
-
-### 2. Issue Forms 配置
-
-- 保持 .github/ISSUE_TEMPLATE 目录在仓库中。
-- 可以按 public/surveys/*.json 中的 issueTemplate 字段新增或修改模板。
-- 建议保留 survey-response 和 survey:* 标签，用于自动汇总。
-
-### 3. Actions 写权限
-
-工作流需要把生成后的 SUMMARY.md 提交回当前公开仓库，因此仓库必须允许 GitHub Actions 写入内容。
-
-在仓库中依次进入：
+在仓库中进入：
 
 - Settings
 - Actions
 - General
 
-确认以下配置：
+确认：
 
 - Workflow permissions 选择 Read and write permissions。
 
-### 4. 必须替换的仓库地址
+### 3. 触发方式
 
-在前端页面中，github-repo-url 目前是占位值。上线前必须改成真实的公开 GitHub 仓库地址，否则页面只会提示配置错误。
+工作流当前支持两种触发方式：
 
-示例：
+- 每小时自动执行一次。
+- 在 Actions 页面手动执行一次。
 
-```text
-https://github.com/your-org/your-public-repo
-```
+工作流会读取当前仓库中所有带 survey-response 标签的 Issue。
 
-### 5. 首次联调检查清单
+## 本地校验
 
-- 从 GitHub Pages 打开页面。
-- 切换到某个问卷并点击跳转按钮。
-- 确认 GitHub 打开的 Issue 页面使用了正确的模板。
-- 提交一条公开问卷 Issue。
-- 到仓库 Actions 页面确认 aggregate 工作流已执行。
-- 确认 SUMMARY.md 已自动更新。
+1. 安装依赖
 
-### 6. 常见问题
+   npm install
 
-- 页面提示仓库地址未配置：优先检查 github-repo-url 或 VITE_GITHUB_REPO_URL 是否仍是占位值。
-- 点击按钮没有打开正确模板：优先检查 public/surveys/*.json 中的 issueTemplate 是否与 .github/ISSUE_TEMPLATE 文件名一致。
-- 工作流没有回写 SUMMARY.md：优先检查仓库的 Workflow permissions 是否为 Read and write。
-- Pages 页面没更新：优先检查仓库 Pages 的 Source 是否已切换到 GitHub Actions。
+2. 生成 Issue Form 模板
 
-## 数据格式
+  npm run generate:issue-templates
 
-后端会把每次提交写成 responses/问卷ID/data-时间戳.json，内容类似：
+3. 校验问卷配置与模板一致性
 
-```json
-{
-   "surveyId": "community-feedback",
-   "surveyTitle": "社区用户意见征集",
-  "username": "octocat",
-  "feedback": "希望增加导出能力",
-   "summaryText": "改进建议 / 需求反馈: 希望增加导出能力",
-  "submittedAt": "2026-07-06T12:00:00.000Z"
-}
-```
+   npm run validate:surveys
 
-## 自动汇总说明
+## 自动汇总
 
-- aggregate.yml 会递归读取 responses 下所有子目录中的 .json 文件。
-- 无法解析的文件会被跳过，不会导致整个流程失败。
-- 汇总结果会按提交时间排序，并按问卷输出提交量统计和明细表。
-- 自动提交消息带有 [skip ci]，用于避免不必要的重复构建。
+工作流文件在 .github/workflows/sync-survey-data.yml。
 
-## 安全建议
+它会：
 
-- 不要把 GH_TOKEN 写进前端页面或仓库源码。
-- 建议为 Token 只授予最小必要权限。
-- 如果需要限制调用来源，可以在 api/submit.js 中把 Access-Control-Allow-Origin 改成你的固定域名。
+1. 读取当前仓库所有带 survey-response 标签的 Issue。
+2. 按问卷标签 survey:xxx 识别问卷类型。
+3. 解析 Issue Form 生成的正文。
+4. 重建 data/responses 下的问卷数据文件。
+5. 为每个问卷重建 summary/<问卷配置名>.md，并按问卷字段展开明细表。
+6. 重建 summary/index.md 作为所有问卷汇总入口。
+
+注意：
+
+- 用户提交 Issue 后不会立即同步到数据文件。
+- 数据同步会在下一次定时执行时发生，或者你手动运行工作流时发生。
+
+## 常见问题
+
+- Issue 刚提交但还没同步到数据文件：这是预期行为，请等待下一次定时执行，或手动运行工作流。
+- Issue 长时间没有被同步到数据文件：优先检查是否带有 survey-response 标签。
+- 同步后数据落到了错误问卷：优先检查 survey:xxx 标签是否正确。
+- 工作流没有回写 summary/ 下的汇总文件：优先检查 Actions 权限是否为 Read and write。
+- 某个问卷没有生成独立汇总文件：优先检查该问卷是否存在对应的 survey:xxx 标签，以及 public/surveys/index.json 中是否仍包含该问卷配置文件。
+- generate:issue-templates 后模板不符合预期：优先检查 public/surveys/*.json 的字段类型、label、options 和 issueTemplate。
+- validate:surveys 失败：优先检查 public/surveys/index.json、问卷 JSON 和 .github/ISSUE_TEMPLATE 文件名是否一致。
 
 ## 后续可选增强
 
-- 为表单增加更多字段，例如邮箱、产品模块、优先级。
-- 在服务端增加简单限流和机器人校验。
-- 为 GitHub Pages 增加自动部署工作流。
+- 在汇总报表中按状态、时间、标签细分统计。
+- 增加问卷配置 schema 校验和 CI 检查。

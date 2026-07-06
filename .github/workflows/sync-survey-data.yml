@@ -1,0 +1,182 @@
+name: Sync Survey Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 * * * *'
+
+permissions:
+  contents: write
+  issues: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Rebuild Survey Data
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const root = process.cwd();
+            const surveysDir = path.join(root, 'public', 'surveys');
+            const dataDir = path.join(root, 'data', 'responses');
+            const summaryDir = path.join(root, 'summary');
+
+            const indexJson = JSON.parse(fs.readFileSync(path.join(surveysDir, 'index.json'), 'utf8'));
+            const surveyFiles = Array.isArray(indexJson.files) ? indexJson.files : [];
+            const surveys = surveyFiles.map((fileName) => {
+              const survey = JSON.parse(fs.readFileSync(path.join(surveysDir, fileName), 'utf8'));
+              return {
+                ...survey,
+                configFileName: fileName,
+                summaryFileName: fileName.replace(/\.json$/i, '.md'),
+              };
+            });
+            const surveysById = Object.fromEntries(surveys.map((survey) => [survey.id, survey]));
+
+            const parseIssueFormBody = (body) => {
+              const sections = {};
+              const normalized = String(body || '').replace(/\r/g, '');
+              const regex = /^###\s+(.+)\n+([\s\S]*?)(?=^###\s+|$)/gm;
+              let match;
+
+              while ((match = regex.exec(normalized)) !== null) {
+                const label = match[1].trim();
+                let value = match[2].trim();
+                const checked = [...value.matchAll(/^- \[[xX]\]\s+(.*)$/gm)].map((item) => item[1].trim());
+                if (checked.length > 0) {
+                  value = checked.join(', ');
+                }
+                value = value.replace(/^_No response_$/m, '-').trim();
+                sections[label] = value || '-';
+              }
+
+              return sections;
+            };
+
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: 'survey-response',
+              per_page: 100,
+            });
+
+            const records = issues
+              .filter((issue) => !issue.pull_request)
+              .map((issue) => {
+                const labels = issue.labels.map((label) => (typeof label === 'string' ? label : label.name));
+                const surveyLabel = labels.find((label) => label && label.startsWith('survey:'));
+                const surveyId = surveyLabel ? surveyLabel.slice('survey:'.length) : null;
+                const survey = surveyId ? surveysById[surveyId] : null;
+                if (!survey) {
+                  return null;
+                }
+
+                const sections = parseIssueFormBody(issue.body);
+                const answers = {};
+                survey.fields.forEach((field) => {
+                  answers[field.name] = sections[field.label] || '-';
+                });
+
+                const reporter = sections['GitHub 用户名'] || issue.user?.login || '匿名';
+                const summaryText = survey.fields.map((field) => `${field.label}: ${answers[field.name] || '-'}`).join(' | ');
+
+                return {
+                  issueNumber: issue.number,
+                  issueTitle: issue.title,
+                  issueUrl: issue.html_url,
+                  issueState: issue.state,
+                  issueAuthor: issue.user?.login || '匿名',
+                  reporter,
+                  surveyId,
+                  surveyTitle: survey.title,
+                  submittedAt: issue.created_at,
+                  updatedAt: issue.updated_at,
+                  answers,
+                  summaryText,
+                };
+              })
+              .filter(Boolean)
+              .sort((left, right) => new Date(left.submittedAt).getTime() - new Date(right.submittedAt).getTime());
+
+            fs.rmSync(dataDir, { recursive: true, force: true });
+            fs.mkdirSync(dataDir, { recursive: true });
+            fs.rmSync(summaryDir, { recursive: true, force: true });
+            fs.mkdirSync(summaryDir, { recursive: true });
+
+            for (const record of records) {
+              const surveyDir = path.join(dataDir, record.surveyId);
+              fs.mkdirSync(surveyDir, { recursive: true });
+              fs.writeFileSync(path.join(surveyDir, `issue-${record.issueNumber}.json`), `${JSON.stringify(record, null, 2)}\n`, 'utf8');
+            }
+
+            const escapeCell = (value) => String(value ?? '-').replace(/\r?\n/g, '<br>').replace(/\|/g, '\\|').trim() || '-';
+
+            let indexMarkdown = '# 问卷汇总总览\n\n';
+            indexMarkdown += `> 本索引由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
+            indexMarkdown += '| 问卷 | 配置文件 | 提交数 | 汇总文件 |\n';
+            indexMarkdown += '| :--- | :--- | :---: | :--- |\n';
+
+            for (const survey of surveys) {
+              const surveyRecords = records.filter((record) => record.surveyId === survey.id);
+              let markdown = `# ${survey.title} 汇总\n\n`;
+              markdown += `> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
+              markdown += `配置文件：\`${survey.configFileName}\`\n\n`;
+              markdown += `总提交数：**${surveyRecords.length}**\n\n`;
+
+              const fieldHeaders = survey.fields.map((field) => field.label);
+              markdown += '| 序号 | 提交时间 (UTC) | 填写人 | 状态 | Issue';
+              fieldHeaders.forEach((fieldLabel) => {
+                markdown += ` | ${escapeCell(fieldLabel)}`;
+              });
+              markdown += ' |\n';
+
+              markdown += '| :---: | :--- | :--- | :---: | :---';
+              fieldHeaders.forEach(() => {
+                markdown += ' | :---';
+              });
+              markdown += ' |\n';
+
+              if (surveyRecords.length === 0) {
+                markdown += '| 1 | - | - | - | 暂无有效数据';
+                fieldHeaders.forEach(() => {
+                  markdown += ' | -';
+                });
+                markdown += ' |\n';
+              } else {
+                surveyRecords.forEach((record, index) => {
+                  markdown += `| ${index + 1} | ${escapeCell(new Date(record.submittedAt).toISOString())} | ${escapeCell(record.reporter)} | ${escapeCell(record.issueState)} | [#${record.issueNumber}](${record.issueUrl})`;
+                  survey.fields.forEach((field) => {
+                    markdown += ` | ${escapeCell(record.answers[field.name] || '-')}`;
+                  });
+                  markdown += ' |\n';
+                });
+              }
+
+              fs.writeFileSync(path.join(summaryDir, survey.summaryFileName), markdown, 'utf8');
+              indexMarkdown += `| ${escapeCell(survey.title)} | \`${escapeCell(survey.configFileName)}\` | ${surveyRecords.length} | [${escapeCell(survey.summaryFileName)}](${encodeURI(survey.summaryFileName)}) |\n`;
+            }
+
+            fs.writeFileSync(path.join(summaryDir, 'index.md'), indexMarkdown, 'utf8');
+
+            console.log(`Synced ${records.length} survey issue records.`);
+
+      - name: Commit and Push Data
+        run: |
+          if git diff --quiet -- data summary; then
+            echo "No survey data changes detected."
+            exit 0
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data summary
+          git commit -m "data: sync survey issue responses [skip ci]"
+          git push

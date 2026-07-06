@@ -1,6 +1,6 @@
 name: 功能优先级投票
-description: 收集用户最想优先实现的功能方向
-title: "[Feature Voting] "
+description: 用于收集用户最想优先实现的功能方向，便于按价值排序。
+title: "[功能优先级投票] "
 labels:
   - survey-response
   - survey:feature-voting
@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        感谢参与功能优先级投票。提交内容会公开展示，并由 GitHub Actions 自动汇总。
+        感谢提交功能优先级投票。该问卷会以公开 Issue 的形式保存，并参与自动汇总。
   - type: input
     id: github-username
     attributes:
@@ -17,35 +17,35 @@ body:
     validations:
       required: true
   - type: dropdown
-    id: product-area
+    id: productarea
     attributes:
       label: 你最关注的产品模块
       options:
-        - 数据看板
-        - 自动化工作流
-        - 权限与协作
-        - 开放集成
+        - "数据看板"
+        - "自动化工作流"
+        - "权限与协作"
+        - "开放集成"
     validations:
       required: true
   - type: input
-    id: requested-feature
+    id: requestedfeature
     attributes:
       label: 你最希望优先实现的功能
-      placeholder: 例如 批量导出、权限分组、Webhook 回调
+      placeholder: 例如：批量导出、权限分组、Webhook 回调
     validations:
       required: true
   - type: dropdown
-    id: priority-level
+    id: prioritylevel
     attributes:
       label: 你的优先级判断
       options:
-        - P0 - 必须优先处理
-        - P1 - 建议尽快安排
-        - P2 - 可以纳入长期规划
+        - "P0 - 必须优先处理"
+        - "P1 - 建议尽快安排"
+        - "P2 - 可以纳入长期规划"
     validations:
       required: true
   - type: checkboxes
-    id: expected-benefits
+    id: expectedbenefits
     attributes:
       label: 这个功能最希望带来的收益
       options:

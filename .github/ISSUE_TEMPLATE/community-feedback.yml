@@ -1,6 +1,6 @@
 name: 社区用户意见征集
-description: 收集社区用户建议、痛点和优先需求
-title: "[Community Feedback] "
+description: 收集社区用户的建议、痛点和优先需求，适合开源项目常规反馈。
+title: "[社区用户意见征集] "
 labels:
   - survey-response
   - survey:community-feedback
@@ -8,7 +8,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        感谢提交社区反馈。此问卷会以公开 Issue 的形式保存，并参与自动汇总。
+        感谢提交社区用户意见征集。该问卷会以公开 Issue 的形式保存，并参与自动汇总。
   - type: input
     id: github-username
     attributes:
@@ -17,21 +17,20 @@ body:
     validations:
       required: true
   - type: input
-    id: contact-email
+    id: contactemail
     attributes:
       label: 联系邮箱
-      placeholder: 例如 you@example.com
+      placeholder: 例如：you@example.com
     validations:
       required: false
   - type: input
-    id: experienced-at
+    id: experiencedat
     attributes:
       label: 问题出现日期
-      placeholder: 例如 2026-07-06
     validations:
       required: true
   - type: dropdown
-    id: satisfaction-score
+    id: satisfactionscore
     attributes:
       label: 当前满意度评分
       options:
