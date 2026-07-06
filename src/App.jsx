@@ -4,25 +4,21 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckboxCardGroup, RadioCardGroup, RatingGroup } from "@/components/ui/choice-group";
 import { FormField } from "@/components/ui/form-field";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 
 const SURVEY_INDEX_URL = `${import.meta.env.BASE_URL}surveys/index.json`;
 const searchParams = new URLSearchParams(window.location.search);
 const requestedSurveyId = (searchParams.get("survey") || "").trim();
-const apiUrl =
-  import.meta.env.VITE_SURVEY_API_URL ||
-  document.querySelector('meta[name="survey-api-url"]')?.getAttribute("content")?.trim() ||
+const githubRepoUrl =
+  import.meta.env.VITE_GITHUB_REPO_URL ||
+  document.querySelector('meta[name="github-repo-url"]')?.getAttribute("content")?.trim() ||
   "";
 
 const heroItems = [
   { icon: ClipboardList, label: "静态托管", text: "前端构建后可直接发布到 GitHub Pages。" },
   { icon: Layers3, label: "多问卷", text: "通过 URL 参数定位问卷，配置全部来自静态 JSON。" },
-  { icon: Sparkles, label: "自动汇总", text: "每次提交都会进入 GitHub 数据仓库并触发报表更新。" },
+  { icon: Sparkles, label: "纯 GitHub 服务", text: "问卷提交进入公开仓库 Issues，再由 Actions 自动汇总。" },
 ];
 
 const validateSurvey = (survey) => {
@@ -35,6 +31,10 @@ const validateSurvey = (survey) => {
   }
 
   if (typeof survey.title !== "string" || !survey.title.trim()) {
+    return false;
+  }
+
+  if (typeof survey.issueTemplate !== "string" || !survey.issueTemplate.trim()) {
     return false;
   }
 
@@ -72,67 +72,31 @@ const validateSurvey = (survey) => {
   });
 };
 
-const getFieldValue = (field, formData) => {
-  if (field.type === "checkbox") {
-    const values = formData.getAll(field.name).filter(Boolean);
-    return values.length > 0 ? values.join(", ") : "-";
-  }
-
-  const value = formData.get(field.name);
-  return value ? String(value) : "-";
+const fieldTypeLabels = {
+  input: "单行输入",
+  textarea: "多行输入",
+  email: "邮箱",
+  date: "日期",
+  rating: "评分",
+  select: "下拉选择",
+  radio: "单选",
+  checkbox: "多选",
 };
 
-const buildSummaryText = (survey, payload) => {
-  return survey.fields.map((field) => `${field.label}: ${payload[field.name] || "-"}`).join(" | ");
+const buildIssueUrl = (survey) => {
+  if (!githubRepoUrl || !survey?.issueTemplate) {
+    return "";
+  }
+
+  const params = new URLSearchParams({ template: survey.issueTemplate });
+  return `${githubRepoUrl.replace(/\/$/, "")}/issues/new?${params.toString()}`;
 };
-
-function FieldRenderer({ field }) {
-  const required = field.required !== false;
-  const commonProps = {
-    id: field.name,
-    name: field.name,
-    required,
-    placeholder: field.placeholder || undefined,
-  };
-
-  if (field.type === "textarea") {
-    return <Textarea {...commonProps} />;
-  }
-
-  if (field.type === "select") {
-    return (
-      <Select id={field.name} name={field.name} required={required} defaultValue="">
-        <option value="">请选择</option>
-        {field.options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </Select>
-    );
-  }
-
-  if (field.type === "radio") {
-    return <RadioCardGroup name={field.name} options={field.options} required={required} />;
-  }
-
-  if (field.type === "checkbox") {
-    return <CheckboxCardGroup name={field.name} options={field.options} required={required} />;
-  }
-
-  if (field.type === "rating") {
-    return <RatingGroup name={field.name} min={field.scaleMin || 1} max={field.scaleMax || 5} required={required} />;
-  }
-
-  return <Input {...commonProps} type={field.type === "email" || field.type === "date" ? field.type : "text"} />;
-}
 
 export default function App() {
   const [surveys, setSurveys] = useState([]);
   const [activeSurvey, setActiveSurvey] = useState(null);
   const [status, setStatus] = useState({ message: "正在加载问卷配置...", tone: "info" });
   const [loading, setLoading] = useState(true);
-  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +140,14 @@ export default function App() {
         setSurveys(surveyResults);
         const nextSurvey = surveyResults.find((survey) => survey.id === requestedSurveyId) || surveyResults[0];
         setActiveSurvey(nextSurvey);
+        if (!githubRepoUrl || githubRepoUrl.includes("your-org/your-public-repo")) {
+          setStatus({
+            message: "请先在 index.html 或 VITE_GITHUB_REPO_URL 中配置真实的公开 GitHub 仓库地址。",
+            tone: "error",
+          });
+          return;
+        }
+
         if (requestedSurveyId && !surveyResults.some((survey) => survey.id === requestedSurveyId)) {
           setStatus({ message: "指定的问卷不存在，请检查 survey 参数。", tone: "error" });
           setActiveSurvey(null);
@@ -200,66 +172,12 @@ export default function App() {
     };
   }, []);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
-    if (!activeSurvey) {
-      setStatus({ message: "当前没有可提交的问卷，请先修正 survey 参数。", tone: "error" });
-      return;
-    }
-
-    if (!apiUrl || apiUrl.includes("your-vercel-project")) {
-      setStatus({ message: "请先配置真实的 Vercel API 地址。", tone: "error" });
-      return;
-    }
-
-    const form = event.currentTarget;
-    if (!form.reportValidity()) {
-      setStatus({ message: "请完整填写必填项后再提交。", tone: "error" });
-      return;
-    }
-
-    setSubmitting(true);
-    setStatus({ message: "正在将数据发送到服务端，请稍候。", tone: "info" });
-
-    const formData = new FormData(form);
-    const payload = {
-      surveyId: activeSurvey.id,
-      surveyTitle: activeSurvey.title,
-      username: formData.get("username"),
-    };
-
-    activeSurvey.fields.forEach((field) => {
-      payload[field.name] = getFieldValue(field, formData);
-    });
-
-    payload.summaryText = buildSummaryText(activeSurvey, payload);
-
-    try {
-      const response = await fetch(apiUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const result = await response.json();
-      if (!response.ok || !result.success) {
-        throw new Error(result.error || result.message || "提交失败，请稍后重试。");
-      }
-
-      form.reset();
-      setStatus({ message: `提交成功，已写入 ${activeSurvey.title}。`, tone: "success" });
-    } catch (error) {
-      setStatus({ message: error instanceof Error ? error.message : "网络请求异常，请检查接口状态。", tone: "error" });
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   const resolvedSurvey =
     activeSurvey ||
     (requestedSurveyId ? null : surveys[0]) ||
     null;
+
+  const issueUrl = buildIssueUrl(resolvedSurvey);
 
   return (
     <main className="mx-auto grid min-h-screen w-full max-w-7xl place-items-center px-6 py-10">
@@ -272,7 +190,7 @@ export default function App() {
               把问卷配置、反馈采集与仓库自动化放进同一条前端工作流
             </CardTitle>
             <CardDescription className="max-w-2xl text-base">
-              前端已切换为 React + shadcn 风格组件。页面从静态 JSON 加载指定问卷，再把反馈安全投递到 Vercel Serverless API。
+              前端已切换为 React + shadcn 风格组件。页面从静态 JSON 加载问卷目录，并把提交入口转到公开仓库的 GitHub Issue Forms。
             </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4 p-0 pt-8">
@@ -330,28 +248,57 @@ export default function App() {
 
             {status.message ? <Alert tone={status.tone}>{status.message}</Alert> : null}
 
-            <form className="space-y-5" onSubmit={handleSubmit}>
-              <FormField label="GitHub 用户名" htmlFor="username">
-                <Input id="username" name="username" placeholder="例如: octocat" required disabled={!resolvedSurvey || loading || submitting} />
-              </FormField>
-
-              {resolvedSurvey
-                ? resolvedSurvey.fields.map((field) => (
-                    <FormField key={field.name} label={field.label} htmlFor={field.name} description={field.description}>
-                      <FieldRenderer field={field} />
+            {resolvedSurvey ? (
+              <div className="space-y-5">
+                <div className="space-y-3">
+                  {resolvedSurvey.fields.map((field) => (
+                    <FormField
+                      key={field.name}
+                      label={field.label}
+                      htmlFor={field.name}
+                      description={field.description || field.placeholder || undefined}
+                    >
+                      <div className="rounded-2xl border border-white/70 bg-white/70 px-4 py-3 text-sm text-foreground">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <span className="font-medium">{fieldTypeLabels[field.type] || field.type}</span>
+                          <span className="rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+                            {field.required === false ? "选填" : "必填"}
+                          </span>
+                        </div>
+                        {field.options ? (
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {field.options.map((option) => (
+                              <span
+                                key={option.value || option.label}
+                                className="rounded-full border border-white/70 bg-accent px-3 py-1 text-xs text-accent-foreground"
+                              >
+                                {option.label}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+                        {field.type === "rating" ? (
+                          <p className="mt-3 text-xs text-muted-foreground">
+                            评分范围：{field.scaleMin || 1} - {field.scaleMax || 5}
+                          </p>
+                        ) : null}
+                      </div>
                     </FormField>
-                  ))
-                : null}
+                  ))}
+                </div>
 
-              <div className="space-y-3 pt-2">
-                <Button type="submit" size="lg" className="w-full" disabled={!resolvedSurvey || loading || submitting}>
-                  {submitting ? "正在安全提交..." : "提交反馈"}
-                </Button>
-                <p className="text-xs leading-6 text-muted-foreground">
-                  部署前请把页面中的 API 地址替换为真实的 Vercel 地址，或在构建环境中设置 VITE_SURVEY_API_URL。
-                </p>
+                <div className="space-y-3 pt-2">
+                  <Button asChild size="lg" className="w-full" disabled={!issueUrl || loading}>
+                    <a href={issueUrl || "#"} target="_blank" rel="noreferrer">
+                      前往 GitHub 提交问卷
+                    </a>
+                  </Button>
+                  <p className="text-xs leading-6 text-muted-foreground">
+                    该模式下不再使用外部后端。点击后会打开公开仓库的 GitHub Issue Form，提交内容公开可见。
+                  </p>
+                </div>
               </div>
-            </form>
+            ) : null}
           </CardContent>
         </Card>
       </div>

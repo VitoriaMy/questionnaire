@@ -1,150 +1,106 @@
 name: Automated Data Aggregation
 
 on:
-  push:
-    paths:
-      - responses/**
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+      - closed
+      - labeled
+      - unlabeled
+  workflow_dispatch:
 
 permissions:
   contents: write
+  issues: read
 
 jobs:
   aggregate:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Aggregate Issues to Markdown
+        uses: actions/github-script@v7
         with:
-          node-version: 20
+          script: |
+            const fs = require('fs');
 
-      - name: Aggregate JSON to Markdown
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
+            const surveyTitles = {
+              'survey:community-feedback': '社区用户意见征集',
+              'survey:feature-voting': '功能优先级投票',
+              'survey:event-registration': '活动报名问卷',
+            };
 
-          const responsesDir = path.join(process.cwd(), 'responses');
-          const outputFile = path.join(process.cwd(), 'SUMMARY.md');
+            const escapeMarkdownCell = (value) =>
+              String(value ?? '-')
+                .replace(/\r?\n/g, '<br>')
+                .replace(/\|/g, '\\|')
+                .trim() || '-';
 
-          const listJsonFiles = (dir) => {
-            if (!fs.existsSync(dir)) {
-              return [];
-            }
-
-            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
-              const fullPath = path.join(dir, entry.name);
-
-              if (entry.isDirectory()) {
-                return listJsonFiles(fullPath);
-              }
-
-              return entry.isFile() && entry.name.endsWith('.json') ? [fullPath] : [];
+            const issues = await github.paginate(github.rest.issues.listForRepo, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: 'survey-response',
+              per_page: 100,
             });
-          };
 
-          const escapeMarkdownCell = (value) =>
-            String(value ?? '-')
-              .replace(/\r?\n/g, '<br>')
-              .replace(/\|/g, '\\|')
-              .trim() || '-';
+            const records = issues
+              .filter((issue) => !issue.pull_request)
+              .map((issue) => {
+                const surveyLabel = issue.labels
+                  .map((label) => (typeof label === 'string' ? label : label.name))
+                  .find((label) => label && label.startsWith('survey:'));
 
-          const getTimestamp = (filePath, payload) => {
-            const submittedAt = payload && typeof payload.submittedAt === 'string'
-              ? Date.parse(payload.submittedAt)
-              : Number.NaN;
+                return {
+                  number: issue.number,
+                  title: issue.title,
+                  surveyTitle: surveyTitles[surveyLabel] || surveyLabel || '未分类问卷',
+                  username: issue.user?.login || '匿名',
+                  state: issue.state,
+                  createdAt: issue.created_at,
+                  url: issue.html_url,
+                };
+              })
+              .sort((left, right) => new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime());
 
-            if (!Number.isNaN(submittedAt)) {
-              return submittedAt;
+            const surveyCounts = records.reduce((accumulator, record) => {
+              accumulator[record.surveyTitle] = (accumulator[record.surveyTitle] || 0) + 1;
+              return accumulator;
+            }, {});
+
+            let markdown = '# 问卷统计最新汇总\n\n';
+            markdown += `> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
+            markdown += `总提交数：**${records.length}**\n\n`;
+            markdown += '## 各问卷提交量\n\n';
+
+            if (records.length === 0) {
+              markdown += '- 暂无有效数据\n\n';
+            } else {
+              Object.entries(surveyCounts)
+                .sort((left, right) => right[1] - left[1])
+                .forEach(([surveyTitle, count]) => {
+                  markdown += `- ${surveyTitle}: **${count}**\n`;
+                });
+              markdown += '\n';
             }
 
-            const fileName = path.basename(filePath);
-            const fileMatch = fileName.match(/data-(\d+)\.json$/);
-            if (fileMatch) {
-              return Number(fileMatch[1]);
-            }
+            markdown += '| 序号 | 提交时间 (UTC) | 问卷 | 提交者 | 状态 | Issue |\n';
+            markdown += '| :---: | :--- | :--- | :--- | :---: | :--- |\n';
 
-            try {
-              return fs.statSync(filePath).mtimeMs;
-            } catch {
-              return 0;
-            }
-          };
-
-          const records = listJsonFiles(responsesDir)
-                .map((filePath) => {
-                  try {
-                    const payload = JSON.parse(
-                      fs.readFileSync(filePath, 'utf8')
-                    );
-
-                    const relativePath = path.relative(responsesDir, filePath);
-                    const inferredSurveyId = relativePath.includes(path.sep)
-                      ? relativePath.split(path.sep)[0]
-                      : 'general';
-
-                    return {
-                      fileName: path.basename(filePath),
-                      surveyId: payload.surveyId || inferredSurveyId,
-                      surveyTitle: payload.surveyTitle || inferredSurveyId,
-                      username: payload.username || '匿名',
-                      feedback: payload.summaryText || payload.feedback || '-',
-                      submittedAt: payload.submittedAt || null,
-                      timestamp: getTimestamp(filePath, payload),
-                    };
-                  } catch (error) {
-                    console.warn(`Skip invalid file: ${filePath} (${error.message})`);
-                    return null;
-                  }
-                })
-                .filter(Boolean)
-                .sort((left, right) => left.timestamp - right.timestamp)
-            ;
-
-          const surveyCounts = records.reduce((accumulator, record) => {
-            const key = record.surveyTitle;
-            accumulator[key] = (accumulator[key] || 0) + 1;
-            return accumulator;
-          }, {});
-
-          let markdown = '# 问卷统计最新汇总\n\n';
-          markdown += `> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
-          markdown += `总提交数：**${records.length}**\n\n`;
-          markdown += '## 各问卷提交量\n\n';
-
-          if (records.length === 0) {
-            markdown += '- 暂无有效数据\n\n';
-          } else {
-            Object.entries(surveyCounts)
-              .sort((left, right) => right[1] - left[1])
-              .forEach(([surveyTitle, count]) => {
-                markdown += `- ${surveyTitle}: **${count}**\n`;
+            if (records.length === 0) {
+              markdown += '| 1 | - | - | - | - | 暂无有效数据 |\n';
+            } else {
+              records.forEach((record, index) => {
+                markdown += `| ${index + 1} | ${escapeMarkdownCell(new Date(record.createdAt).toISOString())} | ${escapeMarkdownCell(record.surveyTitle)} | ${escapeMarkdownCell(record.username)} | ${escapeMarkdownCell(record.state)} | [#${record.number}](${record.url}) ${escapeMarkdownCell(record.title)} |\n`;
               });
+            }
 
-            markdown += '\n';
-          }
-
-          markdown += '| 序号 | 提交时间 (UTC) | 问卷 | 用户名 | 意见反馈 |\n';
-          markdown += '| :---: | :--- | :--- | :--- | :--- |\n';
-
-          if (records.length === 0) {
-            markdown += '| 1 | - | - | - | 暂无有效数据 |\n';
-          } else {
-            records.forEach((record, index) => {
-              const timeText = record.submittedAt
-                ? new Date(record.submittedAt).toISOString()
-                : new Date(record.timestamp).toISOString();
-
-              markdown += `| ${index + 1} | ${escapeMarkdownCell(timeText)} | ${escapeMarkdownCell(record.surveyTitle)} | ${escapeMarkdownCell(record.username)} | ${escapeMarkdownCell(record.feedback)} |\n`;
-            });
-          }
-
-          fs.writeFileSync(outputFile, markdown, 'utf8');
-          console.log(`SUMMARY.md compiled successfully with ${records.length} entries.`);
-          NODE
+            fs.writeFileSync('SUMMARY.md', markdown, 'utf8');
+            console.log(`SUMMARY.md compiled successfully with ${records.length} issue entries.`);
 
       - name: Commit and Push Report
         run: |

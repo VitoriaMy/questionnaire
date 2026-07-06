@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Open Survey 使用说明
+    url: https://github.com/your-org/your-public-repo/blob/main/README.md
+    about: 先阅读仓库首页说明，再选择对应问卷模板提交。

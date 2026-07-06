@@ -1,5 +1,6 @@
 {
   "id": "community-feedback",
+  "issueTemplate": "community-feedback.yml",
   "title": "社区用户意见征集",
   "description": "收集社区用户的建议、痛点和优先需求，适合开源项目常规反馈。",
   "shortDescription": "社区反馈",

@@ -1,17 +1,15 @@
 {
-  "name": "serverless-survey-system",
+  "name": "github-public-survey-system",
   "version": "1.0.0",
-  "description": "A open-source serverless survey system powered by GitHub Pages, Vercel, and GitHub Actions.",
+  "description": "An open-source public survey system powered only by GitHub Pages, GitHub Issue Forms, and GitHub Actions.",
   "type": "module",
-  "main": "api/submit.js",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "start": "vercel dev"
+    "start": "vite"
   },
   "dependencies": {
-    "@octokit/core": "^6.1.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.525.0",

@@ -1,5 +1,6 @@
 {
   "id": "event-registration",
+  "issueTemplate": "event-registration.yml",
   "title": "活动报名问卷",
   "description": "用于活动、直播或线上分享报名，收集参与目标和备注信息。",
   "shortDescription": "活动报名",

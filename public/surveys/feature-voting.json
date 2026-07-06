@@ -1,5 +1,6 @@
 {
   "id": "feature-voting",
+  "issueTemplate": "feature-voting.yml",
   "title": "功能优先级投票",
   "description": "用于收集用户最想优先实现的功能方向，便于按价值排序。",
   "shortDescription": "功能投票",

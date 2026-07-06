@@ -1,0 +1,63 @@
+name: 活动报名问卷
+description: 收集活动报名与参与意愿
+title: "[Event Registration] "
+labels:
+  - survey-response
+  - survey:event-registration
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢报名活动。本提交会以公开 Issue 保存，并进入自动汇总。
+  - type: input
+    id: github-username
+    attributes:
+      label: GitHub 用户名
+      placeholder: 例如 octocat
+    validations:
+      required: true
+  - type: input
+    id: contact-email
+    attributes:
+      label: 联系邮箱
+      placeholder: 例如 you@example.com
+    validations:
+      required: true
+  - type: input
+    id: available-date
+    attributes:
+      label: 期望参与日期
+      placeholder: 例如 2026-07-20
+    validations:
+      required: true
+  - type: dropdown
+    id: interest-score
+    attributes:
+      label: 参与意愿评分
+      options:
+        - "1"
+        - "2"
+        - "3"
+        - "4"
+        - "5"
+        - "6"
+        - "7"
+        - "8"
+        - "9"
+        - "10"
+    validations:
+      required: true
+  - type: input
+    id: participation-goal
+    attributes:
+      label: 报名目的
+      placeholder: 例如 了解架构设计、交流实践经验
+    validations:
+      required: true
+  - type: textarea
+    id: comment
+    attributes:
+      label: 补充说明
+      placeholder: 补充你的背景、问题或特别关注的话题。
+    validations:
+      required: true

@@ -1,0 +1,62 @@
+name: 功能优先级投票
+description: 收集用户最想优先实现的功能方向
+title: "[Feature Voting] "
+labels:
+  - survey-response
+  - survey:feature-voting
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢参与功能优先级投票。提交内容会公开展示，并由 GitHub Actions 自动汇总。
+  - type: input
+    id: github-username
+    attributes:
+      label: GitHub 用户名
+      placeholder: 例如 octocat
+    validations:
+      required: true
+  - type: dropdown
+    id: product-area
+    attributes:
+      label: 你最关注的产品模块
+      options:
+        - 数据看板
+        - 自动化工作流
+        - 权限与协作
+        - 开放集成
+    validations:
+      required: true
+  - type: input
+    id: requested-feature
+    attributes:
+      label: 你最希望优先实现的功能
+      placeholder: 例如 批量导出、权限分组、Webhook 回调
+    validations:
+      required: true
+  - type: dropdown
+    id: priority-level
+    attributes:
+      label: 你的优先级判断
+      options:
+        - P0 - 必须优先处理
+        - P1 - 建议尽快安排
+        - P2 - 可以纳入长期规划
+    validations:
+      required: true
+  - type: checkboxes
+    id: expected-benefits
+    attributes:
+      label: 这个功能最希望带来的收益
+      options:
+        - label: 提升效率
+        - label: 提高稳定性
+        - label: 改善协作流程
+        - label: 增强数据可见性
+  - type: textarea
+    id: reason
+    attributes:
+      label: 为什么这项功能最重要
+      placeholder: 说明这个功能能解决什么问题，或给你带来什么收益。
+    validations:
+      required: true
