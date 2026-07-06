@@ -1,0 +1,119 @@
+name: Automated Data Aggregation
+
+on:
+  push:
+    paths:
+      - responses/**
+
+permissions:
+  contents: write
+
+jobs:
+  aggregate:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Aggregate JSON to Markdown
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const responsesDir = path.join(process.cwd(), 'responses');
+          const outputFile = path.join(process.cwd(), 'SUMMARY.md');
+
+          const escapeMarkdownCell = (value) =>
+            String(value ?? '-')
+              .replace(/\r?\n/g, '<br>')
+              .replace(/\|/g, '\\|')
+              .trim() || '-';
+
+          const getTimestamp = (fileName, payload) => {
+            const submittedAt = payload && typeof payload.submittedAt === 'string'
+              ? Date.parse(payload.submittedAt)
+              : Number.NaN;
+
+            if (!Number.isNaN(submittedAt)) {
+              return submittedAt;
+            }
+
+            const fileMatch = fileName.match(/data-(\d+)\.json$/);
+            if (fileMatch) {
+              return Number(fileMatch[1]);
+            }
+
+            try {
+              return fs.statSync(path.join(responsesDir, fileName)).mtimeMs;
+            } catch {
+              return 0;
+            }
+          };
+
+          const records = fs.existsSync(responsesDir)
+            ? fs
+                .readdirSync(responsesDir)
+                .filter((fileName) => fileName.endsWith('.json'))
+                .map((fileName) => {
+                  try {
+                    const payload = JSON.parse(
+                      fs.readFileSync(path.join(responsesDir, fileName), 'utf8')
+                    );
+
+                    return {
+                      fileName,
+                      username: payload.username || '匿名',
+                      feedback: payload.feedback || '-',
+                      submittedAt: payload.submittedAt || null,
+                      timestamp: getTimestamp(fileName, payload),
+                    };
+                  } catch (error) {
+                    console.warn(`Skip invalid file: ${fileName} (${error.message})`);
+                    return null;
+                  }
+                })
+                .filter(Boolean)
+                .sort((left, right) => left.timestamp - right.timestamp)
+            : [];
+
+          let markdown = '# 问卷统计最新汇总\n\n';
+          markdown += `> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
+          markdown += `总提交数：**${records.length}**\n\n`;
+          markdown += '| 序号 | 提交时间 (UTC) | 用户名 | 意见反馈 |\n';
+          markdown += '| :---: | :--- | :--- | :--- |\n';
+
+          if (records.length === 0) {
+            markdown += '| 1 | - | - | 暂无有效数据 |\n';
+          } else {
+            records.forEach((record, index) => {
+              const timeText = record.submittedAt
+                ? new Date(record.submittedAt).toISOString()
+                : new Date(record.timestamp).toISOString();
+
+              markdown += `| ${index + 1} | ${escapeMarkdownCell(timeText)} | ${escapeMarkdownCell(record.username)} | ${escapeMarkdownCell(record.feedback)} |\n`;
+            });
+          }
+
+          fs.writeFileSync(outputFile, markdown, 'utf8');
+          console.log(`SUMMARY.md compiled successfully with ${records.length} entries.`);
+          NODE
+
+      - name: Commit and Push Report
+        run: |
+          if git diff --quiet -- SUMMARY.md; then
+            echo "No summary changes detected."
+            exit 0
+          fi
+
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SUMMARY.md
+          git commit -m "docs: update survey summary [skip ci]"
+          git push

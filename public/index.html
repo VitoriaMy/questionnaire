@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="survey-api-url"
+      content="https://your-vercel-project.vercel.app/api/submit"
+    />
+    <title>Open Survey | 现代问卷系统</title>
+    <style>
+      :root {
+        --bg-top: #f6efe5;
+        --bg-bottom: #dce8f5;
+        --panel: rgba(255, 255, 255, 0.92);
+        --panel-border: rgba(31, 41, 55, 0.1);
+        --text: #172033;
+        --muted: #5f6b7a;
+        --accent: #c6572b;
+        --accent-strong: #a9461d;
+        --field-bg: rgba(255, 251, 247, 0.9);
+        --focus: rgba(198, 87, 43, 0.16);
+        --success: #1f7a49;
+        --error: #b93820;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Avenir Next", "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.8), transparent 28%),
+          linear-gradient(145deg, var(--bg-top), var(--bg-bottom));
+        display: grid;
+        place-items: center;
+        padding: 24px;
+      }
+
+      .shell {
+        width: min(100%, 960px);
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 24px;
+        align-items: stretch;
+      }
+
+      .hero,
+      .card {
+        background: var(--panel);
+        border: 1px solid var(--panel-border);
+        border-radius: 24px;
+        backdrop-filter: blur(18px);
+        box-shadow: 0 24px 60px rgba(23, 32, 51, 0.12);
+      }
+
+      .hero {
+        padding: 40px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .hero::after {
+        content: "";
+        position: absolute;
+        right: -80px;
+        bottom: -90px;
+        width: 240px;
+        height: 240px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, rgba(198, 87, 43, 0.18), rgba(52, 96, 167, 0.12));
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.72);
+        color: var(--accent-strong);
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 18px 0 14px;
+        font-size: clamp(32px, 4vw, 48px);
+        line-height: 1.05;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 30rem;
+        color: var(--muted);
+        font-size: 16px;
+        line-height: 1.75;
+      }
+
+      .points {
+        margin: 28px 0 0;
+        padding: 0;
+        list-style: none;
+        display: grid;
+        gap: 14px;
+      }
+
+      .points li {
+        display: flex;
+        gap: 12px;
+        color: var(--text);
+        font-size: 15px;
+      }
+
+      .points strong {
+        color: var(--accent-strong);
+      }
+
+      .card {
+        padding: 28px;
+      }
+
+      .card h2 {
+        margin: 0 0 8px;
+        font-size: 24px;
+      }
+
+      .card p {
+        margin: 0 0 24px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .form-group {
+        margin-bottom: 18px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 8px;
+        font-size: 14px;
+        font-weight: 700;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 14px 16px;
+        border: 1px solid rgba(23, 32, 51, 0.12);
+        border-radius: 16px;
+        background: var(--field-bg);
+        color: var(--text);
+        font: inherit;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: var(--accent);
+        box-shadow: 0 0 0 4px var(--focus);
+        transform: translateY(-1px);
+      }
+
+      textarea {
+        min-height: 152px;
+        resize: vertical;
+      }
+
+      .status {
+        min-height: 22px;
+        margin: 4px 0 14px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+
+      .status.success {
+        color: var(--success);
+      }
+
+      .status.error {
+        color: var(--error);
+      }
+
+      button {
+        width: 100%;
+        border: 0;
+        border-radius: 16px;
+        padding: 14px 18px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        color: #fff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+        box-shadow: 0 18px 36px rgba(166, 70, 29, 0.22);
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .hint {
+        margin-top: 14px;
+        font-size: 12px;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      @media (max-width: 840px) {
+        .shell {
+          grid-template-columns: 1fr;
+        }
+
+        .hero,
+        .card {
+          padding: 24px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-label="问卷说明">
+        <span class="eyebrow">Open Survey</span>
+        <h1>把用户反馈直接接入你的仓库工作流</h1>
+        <p>
+          这是一个基于 GitHub Pages、Vercel Serverless Function 与 GitHub Actions
+          的轻量问卷入口，适合社区收集建议、问题反馈与功能诉求。
+        </p>
+        <ul class="points">
+          <li><strong>前端静态托管：</strong> 页面可以直接发布到 GitHub Pages。</li>
+          <li><strong>服务端隐藏密钥：</strong> GitHub Token 只保存在 Vercel 环境变量。</li>
+          <li><strong>自动统计：</strong> 新提交会进入 responses 目录并驱动 Markdown 汇总。</li>
+        </ul>
+      </section>
+
+      <section class="card" aria-label="反馈表单">
+        <h2>社区用户意见征集</h2>
+        <p>留下你的 GitHub 用户名和建议，我们会把它写入数据仓库并参与自动汇总。</p>
+
+        <form id="surveyForm" novalidate>
+          <div class="form-group">
+            <label for="username">GitHub 用户名</label>
+            <input id="username" name="username" type="text" placeholder="例如: octocat" required />
+          </div>
+
+          <div class="form-group">
+            <label for="feedback">改进建议 / 需求反馈</label>
+            <textarea
+              id="feedback"
+              name="feedback"
+              placeholder="请详细描述你的想法、遇到的问题或希望新增的能力。"
+              required
+            ></textarea>
+          </div>
+
+          <div id="formStatus" class="status" aria-live="polite"></div>
+          <button id="submitBtn" type="submit">提交反馈</button>
+        </form>
+
+        <div class="hint">
+          部署前请把页面中的 API 地址替换成你自己的 Vercel 接口地址，格式示例：
+          https://your-vercel-project.vercel.app/api/submit
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("surveyForm");
+      const submitButton = document.getElementById("submitBtn");
+      const statusNode = document.getElementById("formStatus");
+      const apiUrl = document
+        .querySelector('meta[name="survey-api-url"]')
+        .getAttribute("content")
+        .trim();
+
+      const setStatus = (message, type) => {
+        statusNode.textContent = message;
+        statusNode.className = type ? `status ${type}` : "status";
+      };
+
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        if (!apiUrl || apiUrl.includes("your-vercel-project")) {
+          setStatus("请先在页面头部配置真实的 Vercel API 地址。", "error");
+          return;
+        }
+
+        if (!form.reportValidity()) {
+          setStatus("请完整填写必填项后再提交。", "error");
+          return;
+        }
+
+        submitButton.disabled = true;
+        submitButton.textContent = "正在安全提交...";
+        setStatus("正在将数据发送到服务端，请稍候。", "");
+
+        const formData = new FormData(form);
+        const payload = Object.fromEntries(formData.entries());
+
+        try {
+          const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+          });
+
+          const result = await response.json();
+
+          if (!response.ok || !result.success) {
+            throw new Error(result.error || result.message || "提交失败，请稍后重试。");
+          }
+
+          form.reset();
+          setStatus("提交成功，反馈已写入数据仓库。", "success");
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "网络请求异常，请检查接口状态。";
+          setStatus(message, "error");
+        } finally {
+          submitButton.disabled = false;
+          submitButton.textContent = "提交反馈";
+        }
+      });
+    </script>
+  </body>
+</html>

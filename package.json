@@ -1,0 +1,17 @@
+{
+  "name": "serverless-survey-system",
+  "version": "1.0.0",
+  "description": "A open-source serverless survey system powered by GitHub Pages, Vercel, and GitHub Actions.",
+  "type": "module",
+  "main": "api/submit.js",
+  "scripts": {
+    "start": "vercel dev"
+  },
+  "dependencies": {
+    "@octokit/core": "^6.1.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "license": "MIT"
+}
