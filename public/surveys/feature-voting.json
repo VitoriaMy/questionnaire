@@ -1,0 +1,88 @@
+{
+  "id": "feature-voting",
+  "title": "功能优先级投票",
+  "description": "用于收集用户最想优先实现的功能方向，便于按价值排序。",
+  "shortDescription": "功能投票",
+  "fields": [
+    {
+      "name": "productArea",
+      "label": "你最关注的产品模块",
+      "type": "select",
+      "options": [
+        {
+          "value": "dashboard",
+          "label": "数据看板"
+        },
+        {
+          "value": "workflow",
+          "label": "自动化工作流"
+        },
+        {
+          "value": "permissions",
+          "label": "权限与协作"
+        },
+        {
+          "value": "integration",
+          "label": "开放集成"
+        }
+      ]
+    },
+    {
+      "name": "requestedFeature",
+      "label": "你最希望优先实现的功能",
+      "type": "input",
+      "placeholder": "例如：批量导出、权限分组、Webhook 回调"
+    },
+    {
+      "name": "priorityLevel",
+      "label": "你的优先级判断",
+      "type": "radio",
+      "options": [
+        {
+          "value": "p0",
+          "label": "P0 - 必须优先处理",
+          "description": "没有这个功能会明显影响当前使用。"
+        },
+        {
+          "value": "p1",
+          "label": "P1 - 建议尽快安排",
+          "description": "有明显价值，但可以接受短期等待。"
+        },
+        {
+          "value": "p2",
+          "label": "P2 - 可以纳入长期规划",
+          "description": "更偏向体验优化或中长期完善。"
+        }
+      ]
+    },
+    {
+      "name": "expectedBenefits",
+      "label": "这个功能最希望带来的收益",
+      "type": "checkbox",
+      "options": [
+        {
+          "value": "efficiency",
+          "label": "提升效率"
+        },
+        {
+          "value": "stability",
+          "label": "提高稳定性"
+        },
+        {
+          "value": "collaboration",
+          "label": "改善协作流程"
+        },
+        {
+          "value": "visibility",
+          "label": "增强数据可见性"
+        }
+      ]
+    },
+    {
+      "name": "reason",
+      "label": "为什么这项功能最重要",
+      "type": "textarea",
+      "placeholder": "说明这个功能能解决什么问题，或给你带来什么收益。"
+    }
+  ]
+}

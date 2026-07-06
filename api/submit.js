@@ -43,6 +43,21 @@ const isEmptyObject = (value) => {
 const getMissingEnvVars = () =>
   REQUIRED_ENV_VARS.filter((key) => !process.env[key] || !process.env[key].trim());
 
+const normalizeSurveyId = (value) => {
+  if (typeof value !== "string") {
+    return "general";
+  }
+
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-_]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return normalized || "general";
+};
+
 const handler = async (req, res) => {
   if (req.method !== "POST") {
     return res.status(405).json({ success: false, message: "Method Not Allowed" });
@@ -67,9 +82,15 @@ const handler = async (req, res) => {
     }
 
     const octokit = new Octokit({ auth: process.env.GH_TOKEN });
+    const surveyId = normalizeSurveyId(formData.surveyId);
     const fileName = `data-${Date.now()}.json`;
     const payload = {
       ...formData,
+      surveyId,
+      surveyTitle:
+        typeof formData.surveyTitle === "string" && formData.surveyTitle.trim()
+          ? formData.surveyTitle.trim()
+          : "通用反馈问卷",
       submittedAt: new Date().toISOString(),
     };
     const contentBase64 = Buffer.from(JSON.stringify(payload, null, 2)).toString("base64");
@@ -77,12 +98,16 @@ const handler = async (req, res) => {
     await octokit.request("PUT /repos/{owner}/{repo}/contents/{path}", {
       owner: process.env.GH_OWNER,
       repo: process.env.GH_DATA_REPO,
-      path: `responses/${fileName}`,
+      path: `responses/${surveyId}/${fileName}`,
       message: `Form submission ${fileName}`,
       content: contentBase64,
     });
 
-    return res.status(200).json({ success: true, message: "Submission successful" });
+    return res.status(200).json({
+      success: true,
+      message: "Submission successful",
+      surveyId,
+    });
   } catch (error) {
     if (error instanceof SyntaxError) {
       return res.status(400).json({ success: false, message: "Invalid JSON payload" });

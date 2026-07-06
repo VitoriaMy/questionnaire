@@ -5,10 +5,26 @@
   "type": "module",
   "main": "api/submit.js",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "start": "vercel dev"
   },
   "dependencies": {
-    "@octokit/core": "^6.1.0"
+    "@octokit/core": "^6.1.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.525.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.7.0",
+    "autoprefixer": "^10.4.21",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.4.19"
   },
   "engines": {
     "node": ">=20.0.0"

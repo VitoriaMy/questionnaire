@@ -30,13 +30,29 @@ jobs:
           const responsesDir = path.join(process.cwd(), 'responses');
           const outputFile = path.join(process.cwd(), 'SUMMARY.md');
 
+          const listJsonFiles = (dir) => {
+            if (!fs.existsSync(dir)) {
+              return [];
+            }
+
+            return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+              const fullPath = path.join(dir, entry.name);
+
+              if (entry.isDirectory()) {
+                return listJsonFiles(fullPath);
+              }
+
+              return entry.isFile() && entry.name.endsWith('.json') ? [fullPath] : [];
+            });
+          };
+
           const escapeMarkdownCell = (value) =>
             String(value ?? '-')
               .replace(/\r?\n/g, '<br>')
               .replace(/\|/g, '\\|')
               .trim() || '-';
 
-          const getTimestamp = (fileName, payload) => {
+          const getTimestamp = (filePath, payload) => {
             const submittedAt = payload && typeof payload.submittedAt === 'string'
               ? Date.parse(payload.submittedAt)
               : Number.NaN;
@@ -45,59 +61,84 @@ jobs:
               return submittedAt;
             }
 
+            const fileName = path.basename(filePath);
             const fileMatch = fileName.match(/data-(\d+)\.json$/);
             if (fileMatch) {
               return Number(fileMatch[1]);
             }
 
             try {
-              return fs.statSync(path.join(responsesDir, fileName)).mtimeMs;
+              return fs.statSync(filePath).mtimeMs;
             } catch {
               return 0;
             }
           };
 
-          const records = fs.existsSync(responsesDir)
-            ? fs
-                .readdirSync(responsesDir)
-                .filter((fileName) => fileName.endsWith('.json'))
-                .map((fileName) => {
+          const records = listJsonFiles(responsesDir)
+                .map((filePath) => {
                   try {
                     const payload = JSON.parse(
-                      fs.readFileSync(path.join(responsesDir, fileName), 'utf8')
+                      fs.readFileSync(filePath, 'utf8')
                     );
 
+                    const relativePath = path.relative(responsesDir, filePath);
+                    const inferredSurveyId = relativePath.includes(path.sep)
+                      ? relativePath.split(path.sep)[0]
+                      : 'general';
+
                     return {
-                      fileName,
+                      fileName: path.basename(filePath),
+                      surveyId: payload.surveyId || inferredSurveyId,
+                      surveyTitle: payload.surveyTitle || inferredSurveyId,
                       username: payload.username || '匿名',
-                      feedback: payload.feedback || '-',
+                      feedback: payload.summaryText || payload.feedback || '-',
                       submittedAt: payload.submittedAt || null,
-                      timestamp: getTimestamp(fileName, payload),
+                      timestamp: getTimestamp(filePath, payload),
                     };
                   } catch (error) {
-                    console.warn(`Skip invalid file: ${fileName} (${error.message})`);
+                    console.warn(`Skip invalid file: ${filePath} (${error.message})`);
                     return null;
                   }
                 })
                 .filter(Boolean)
                 .sort((left, right) => left.timestamp - right.timestamp)
-            : [];
+            ;
+
+          const surveyCounts = records.reduce((accumulator, record) => {
+            const key = record.surveyTitle;
+            accumulator[key] = (accumulator[key] || 0) + 1;
+            return accumulator;
+          }, {});
 
           let markdown = '# 问卷统计最新汇总\n\n';
           markdown += `> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): ${new Date().toISOString()}\n\n`;
           markdown += `总提交数：**${records.length}**\n\n`;
-          markdown += '| 序号 | 提交时间 (UTC) | 用户名 | 意见反馈 |\n';
-          markdown += '| :---: | :--- | :--- | :--- |\n';
+          markdown += '## 各问卷提交量\n\n';
 
           if (records.length === 0) {
-            markdown += '| 1 | - | - | 暂无有效数据 |\n';
+            markdown += '- 暂无有效数据\n\n';
+          } else {
+            Object.entries(surveyCounts)
+              .sort((left, right) => right[1] - left[1])
+              .forEach(([surveyTitle, count]) => {
+                markdown += `- ${surveyTitle}: **${count}**\n`;
+              });
+
+            markdown += '\n';
+          }
+
+          markdown += '| 序号 | 提交时间 (UTC) | 问卷 | 用户名 | 意见反馈 |\n';
+          markdown += '| :---: | :--- | :--- | :--- | :--- |\n';
+
+          if (records.length === 0) {
+            markdown += '| 1 | - | - | - | 暂无有效数据 |\n';
           } else {
             records.forEach((record, index) => {
               const timeText = record.submittedAt
                 ? new Date(record.submittedAt).toISOString()
                 : new Date(record.timestamp).toISOString();
 
-              markdown += `| ${index + 1} | ${escapeMarkdownCell(timeText)} | ${escapeMarkdownCell(record.username)} | ${escapeMarkdownCell(record.feedback)} |\n`;
+              markdown += `| ${index + 1} | ${escapeMarkdownCell(timeText)} | ${escapeMarkdownCell(record.surveyTitle)} | ${escapeMarkdownCell(record.username)} | ${escapeMarkdownCell(record.feedback)} |\n`;
             });
           }
 

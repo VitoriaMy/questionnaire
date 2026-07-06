@@ -1,0 +1,38 @@
+{
+  "id": "event-registration",
+  "title": "活动报名问卷",
+  "description": "用于活动、直播或线上分享报名，收集参与目标和备注信息。",
+  "shortDescription": "活动报名",
+  "fields": [
+    {
+      "name": "contactEmail",
+      "label": "联系邮箱",
+      "type": "email",
+      "placeholder": "例如：you@example.com"
+    },
+    {
+      "name": "availableDate",
+      "label": "期望参与日期",
+      "type": "date"
+    },
+    {
+      "name": "interestScore",
+      "label": "参与意愿评分",
+      "type": "rating",
+      "scaleMin": 1,
+      "scaleMax": 10
+    },
+    {
+      "name": "participationGoal",
+      "label": "报名目的",
+      "type": "input",
+      "placeholder": "例如：了解架构设计、交流实践经验"
+    },
+    {
+      "name": "comment",
+      "label": "补充说明",
+      "type": "textarea",
+      "placeholder": "补充你的背景、问题或特别关注的话题。"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "id": "community-feedback",
+  "title": "社区用户意见征集",
+  "description": "收集社区用户的建议、痛点和优先需求，适合开源项目常规反馈。",
+  "shortDescription": "社区反馈",
+  "fields": [
+    {
+      "name": "contactEmail",
+      "label": "联系邮箱",
+      "type": "email",
+      "placeholder": "例如：you@example.com",
+      "required": false
+    },
+    {
+      "name": "experiencedAt",
+      "label": "问题出现日期",
+      "type": "date"
+    },
+    {
+      "name": "satisfactionScore",
+      "label": "当前满意度评分",
+      "type": "rating",
+      "scaleMin": 1,
+      "scaleMax": 5
+    },
+    {
+      "name": "feedback",
+      "label": "改进建议 / 需求反馈",
+      "type": "textarea",
+      "placeholder": "请详细描述你的想法、遇到的问题或希望新增的能力。"
+    }
+  ]
+}
