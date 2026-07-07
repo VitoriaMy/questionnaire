@@ -1,0 +1,19 @@
+{
+  "issueNumber": 4,
+  "issueTitle": "[社区用户意见征集]",
+  "issueUrl": "https://github.com/VitoriaMy/questionnaire/issues/4",
+  "issueState": "open",
+  "issueAuthor": "VitoriaMy",
+  "reporter": "33",
+  "surveyId": "community-feedback",
+  "surveyTitle": "社区用户意见征集",
+  "submittedAt": "2026-07-07T05:52:00Z",
+  "updatedAt": "2026-07-07T05:52:07Z",
+  "answers": {
+    "contactEmail": "324234",
+    "experiencedAt": "24234",
+    "satisfactionScore": "1",
+    "feedback": "erert"
+  },
+  "summaryText": "联系邮箱: 324234 | 问题出现日期: 24234 | 当前满意度评分: 1 | 改进建议 / 需求反馈: erert"
+}
