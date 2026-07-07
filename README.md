@@ -137,6 +137,7 @@ summary/event-registration.md
 - 模板由 npm run generate:issue-templates 自动生成。
 - 每个问卷配置里的 issueTemplate 要和目标模板文件名一致。
 - 仓库中的 label-survey-issues.yml 会自动给匹配问卷标题的 Issue 补上 survey-response 和 survey:问卷ID 标签，方便 GitHub 直接筛选。
+- 每个自动生成的 Issue Form 顶部都会包含固定文本标记 `Survey ID: <问卷ID>`，同步工作流会优先用它识别问卷。
 
 ### 2. 启用 Actions 写权限
 
@@ -180,11 +181,12 @@ summary/event-registration.md
 它会：
 
 1. 读取当前仓库所有带 survey-response 标签的 Issue。
-2. 按问卷标签 survey:xxx 识别问卷类型。
-3. 解析 Issue Form 生成的正文。
-4. 重建 data/responses 下的问卷数据文件。
-5. 为每个问卷重建 summary/<问卷配置名>.md，并按问卷字段展开明细表。
-6. 重建 summary/index.md 作为所有问卷汇总入口。
+2. 优先解析 Issue 正文中的 `Survey ID: <问卷ID>` 固定标记识别问卷类型。
+3. 如果没有固定标记，再回退到 survey:xxx 标签或标题前缀匹配。
+4. 解析 Issue Form 生成的正文。
+5. 重建 data/responses 下的问卷数据文件。
+6. 为每个问卷重建 summary/<问卷配置名>.md，并按问卷字段展开明细表。
+7. 重建 summary/index.md 作为所有问卷汇总入口。
 
 注意：
 

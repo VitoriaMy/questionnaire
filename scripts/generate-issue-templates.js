@@ -99,6 +99,7 @@ const createTemplateContent = (survey) => {
     "    attributes:",
     "      value: |",
     `        感谢提交${survey.title}。该问卷会以公开 Issue 的形式保存，并参与自动汇总。`,
+    `        Survey ID: ${survey.id}`,
     "  - type: input",
     "    id: github-username",
     "    attributes:",

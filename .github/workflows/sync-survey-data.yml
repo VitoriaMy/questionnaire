@@ -61,6 +61,12 @@ jobs:
               return sections;
             };
 
+            const parseSurveyIdMarker = (body) => {
+              const normalized = String(body || '').replace(/\r/g, '');
+              const match = normalized.match(/Survey ID:\s*([a-z0-9-_]+)/i);
+              return match ? match[1].trim().toLowerCase() : null;
+            };
+
             const issues = await github.paginate(github.rest.issues.listForRepo, {
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -74,9 +80,11 @@ jobs:
                 const labels = issue.labels.map((label) => (typeof label === 'string' ? label : label.name));
                 const surveyLabel = labels.find((label) => label && label.startsWith('survey:'));
                 const surveyId = surveyLabel ? surveyLabel.slice('survey:'.length) : null;
+                const surveyIdMarker = parseSurveyIdMarker(issue.body);
+                const surveyByMarker = surveyIdMarker ? surveysById[surveyIdMarker] : null;
                 const surveyByLabel = surveyId ? surveysById[surveyId] : null;
                 const surveyByTitle = surveys.find((survey) => issue.title && issue.title.startsWith(survey.issueTitlePrefix));
-                const survey = surveyByLabel || surveyByTitle || null;
+                const survey = surveyByMarker || surveyByLabel || surveyByTitle || null;
                 if (!survey) {
                   return null;
                 }

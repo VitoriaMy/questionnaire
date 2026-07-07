@@ -9,6 +9,7 @@ body:
     attributes:
       value: |
         感谢提交功能优先级投票。该问卷会以公开 Issue 的形式保存，并参与自动汇总。
+        Survey ID: feature-voting
   - type: input
     id: github-username
     attributes:
