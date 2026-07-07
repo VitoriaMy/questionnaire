@@ -36,6 +36,7 @@ jobs:
                 ...survey,
                 configFileName: fileName,
                 summaryFileName: fileName.replace(/\.json$/i, '.md'),
+                issueTitlePrefix: `[${survey.title}]`,
               };
             });
             const surveysById = Object.fromEntries(surveys.map((survey) => [survey.id, survey]));
@@ -64,7 +65,6 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'all',
-              labels: 'survey-response',
               per_page: 100,
             });
 
@@ -74,7 +74,9 @@ jobs:
                 const labels = issue.labels.map((label) => (typeof label === 'string' ? label : label.name));
                 const surveyLabel = labels.find((label) => label && label.startsWith('survey:'));
                 const surveyId = surveyLabel ? surveyLabel.slice('survey:'.length) : null;
-                const survey = surveyId ? surveysById[surveyId] : null;
+                const surveyByLabel = surveyId ? surveysById[surveyId] : null;
+                const surveyByTitle = surveys.find((survey) => issue.title && issue.title.startsWith(survey.issueTitlePrefix));
+                const survey = surveyByLabel || surveyByTitle || null;
                 if (!survey) {
                   return null;
                 }

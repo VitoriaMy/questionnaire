@@ -136,6 +136,7 @@ summary/event-registration.md
 - 保持 .github/ISSUE_TEMPLATE 目录存在。
 - 模板由 npm run generate:issue-templates 自动生成。
 - 每个问卷配置里的 issueTemplate 要和目标模板文件名一致。
+- 仓库中的 label-survey-issues.yml 会自动给匹配问卷标题的 Issue 补上 survey-response 和 survey:问卷ID 标签，方便 GitHub 直接筛选。
 
 ### 2. 启用 Actions 写权限
 

@@ -1,0 +1,59 @@
+name: Label Survey Issues
+
+on:
+  issues:
+    types:
+      - opened
+      - edited
+      - reopened
+      - labeled
+      - unlabeled
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v5
+
+      - name: Apply Survey Labels
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const surveysDir = path.join(process.cwd(), 'public', 'surveys');
+            const indexJson = JSON.parse(fs.readFileSync(path.join(surveysDir, 'index.json'), 'utf8'));
+            const surveyFiles = Array.isArray(indexJson.files) ? indexJson.files : [];
+            const surveys = surveyFiles.map((fileName) => JSON.parse(fs.readFileSync(path.join(surveysDir, fileName), 'utf8')));
+
+            const issue = context.payload.issue;
+            if (!issue) {
+              core.info('No issue payload found.');
+              return;
+            }
+
+            const survey = surveys.find((item) => issue.title && issue.title.startsWith(`[${item.title}]`));
+            if (!survey) {
+              core.info(`Issue #${issue.number} does not match any survey title prefix.`);
+              return;
+            }
+
+            const nextLabels = new Set(['survey-response', `survey:${survey.id}`]);
+            const currentLabels = issue.labels.map((label) => (typeof label === 'string' ? label : label.name)).filter(Boolean);
+            currentLabels.forEach((label) => nextLabels.add(label));
+
+            await github.rest.issues.setLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              labels: [...nextLabels],
+            });
+
+            core.info(`Applied survey labels to issue #${issue.number}: ${[...nextLabels].join(', ')}`);
