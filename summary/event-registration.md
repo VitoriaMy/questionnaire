@@ -1,6 +1,6 @@
 # 活动报名问卷 汇总
 
-> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-07-11T11:56:10.250Z
+> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-07-11T13:44:28.039Z
 
 配置文件：`event-registration.json`
 
