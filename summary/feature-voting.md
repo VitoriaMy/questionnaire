@@ -1,6 +1,6 @@
 # 功能优先级投票 汇总
 
-> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-08-09T08:17:33.629Z
+> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-08-09T09:18:01.224Z
 
 配置文件：`feature-voting.json`
 
