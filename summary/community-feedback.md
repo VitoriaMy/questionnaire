@@ -1,6 +1,6 @@
 # 社区用户意见征集 汇总
 
-> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-08-22T22:27:12.258Z
+> 本报表由 GitHub Actions 自动构建。更新时间 (UTC): 2026-08-22T23:25:48.453Z
 
 配置文件：`community-feedback.json`
 
